@@ -70,7 +70,7 @@ APPLE_SF = {
 }
 
 # Đổi con số này rồi chạy lại `python3 build_liquid.py` để có thời gian mới.
-# GIF tự chạy khi tới slide, tương thích Impress ổn định hơn animation PPTX.
+# Đồng hồ là video: vào slide sẽ đứng yên ở 00:30; bấm để chạy, có nút Dừng/Reset.
 THINK_SECONDS = 30
 
 A_ = "http://schemas.openxmlformats.org/drawingml/2006/main"
@@ -327,49 +327,80 @@ def notes(slide, text):
     slide.notes_slide.notes_text_frame.text = text
 
 # ---------------------------------------------------------------- hẹn giờ suy nghĩ
-def _countdown_gif(seconds=THINK_SECONDS):
-    """Tạo GIF chữ số đếm ngược; đây là đồng hồ, không phải icon tự tạo.
+def _countdown_assets(seconds=THINK_SECONDS):
+    """Tạo video MP4 đếm ngược và khung poster tĩnh 00:SS.
 
-    GIF được dùng thay cho animation XML của PowerPoint để LibreOffice Impress
-    phát được đồng hồ khi trình chiếu. Giá trị `seconds` là điểm tùy chỉnh duy nhất.
+    Đây là phần đồng hồ tương tác, không phải icon. Video *không autoplay*:
+    trong LibreOffice Impress, bấm trực tiếp vào 00:SS để chạy, sau đó dùng
+    điều khiển media Pause hoặc nút Dừng · Reset bên dưới để kết thúc.
     """
     import os
+    import subprocess
     from PIL import Image, ImageDraw, ImageFont
+    import imageio_ffmpeg
+
     root = os.path.dirname(os.path.abspath(__file__))
     folder = os.path.join(root, "assets", "timer")
     os.makedirs(folder, exist_ok=True)
-    path = os.path.join(folder, "suy-nghi-%02ds.gif" % seconds)
-    if os.path.exists(path):
-        return path
-    w, h = 240, 80
-    font = ImageFont.truetype(_DEJ_B, 48)
-    frames, durations = [], []
-    for remaining in range(seconds, -1, -1):
-        # Nền trắng khớp thẻ đồng hồ; không cần transparency nên Impress phát ổn.
+    stem = os.path.join(folder, "suy-nghi-%02ds" % seconds)
+    movie, poster = stem + ".mp4", stem + ".png"
+    if os.path.exists(movie) and os.path.exists(poster):
+        return movie, poster
+
+    # Nét to để đồng hồ vừa phải nhưng vẫn rõ ở góc slide.
+    w, h = 560, 190
+    font = ImageFont.truetype(_DEJ_B, 128)
+    def frame_for(remaining):
         frame = Image.new("RGB", (w, h), (255, 255, 255))
         d = ImageDraw.Draw(frame)
         label = "%02d:%02d" % divmod(remaining, 60)
         bb = d.textbbox((0, 0), label, font=font)
         d.text(((w - (bb[2] - bb[0])) / 2, (h - (bb[3] - bb[1])) / 2 - bb[1]),
                label, fill=(10, 102, 224), font=font)
-        frames.append(frame)
-        durations.append(1000 if remaining else 2500)
-    # Không đặt loop: GIF chạy một lượt và dừng ở 00:00.
-    frames[0].save(path, save_all=True, append_images=frames[1:],
-                   duration=durations, disposal=2)
-    return path
+        return frame
+
+    frame_for(seconds).save(poster)
+    # Xuất H.264 MP4 với poster đầu 00:SS. imageio-ffmpeg mang theo ffmpeg cần thiết.
+    command = [imageio_ffmpeg.get_ffmpeg_exe(), "-y", "-f", "image2pipe", "-framerate", "1",
+               "-vcodec", "png", "-i", "pipe:0", "-c:v", "libx264", "-pix_fmt", "yuv420p",
+               # Hiện 00:00 trong 1/4 giây; tổng thời gian gần đúng số giây đã chọn.
+               "-t", "%.2f" % (seconds + 0.25), "-movflags", "+faststart", movie]
+    proc = subprocess.Popen(command, stdin=subprocess.PIPE, stdout=subprocess.DEVNULL,
+                            stderr=subprocess.PIPE)
+    try:
+        for remaining in range(seconds, -1, -1):
+            frame_for(remaining).save(proc.stdin, format="PNG")
+        proc.stdin.close()
+        stderr = proc.stderr.read().decode("utf-8", "replace")
+        if proc.wait() != 0:
+            raise RuntimeError("Không tạo được video hẹn giờ: " + stderr[-500:])
+    except Exception:
+        proc.kill()
+        raise
+    return movie, poster
 
 def countdown_timer(slide, seconds=THINK_SECONDS):
-    """Đồng hồ nhỏ ở góc phải, không đụng title/kicker; trả về shape để có thể quản lí."""
-    x, y, w, h = SW - ML - 1.26, 0.43, 1.26, 0.58
-    plate = rounded(slide, x, y, w, h, radius=0.18, fill=WHITE, alpha=92,
-                    border=BLUE, border_w=0.8, border_alpha=35)
-    one(slide, x + 0.12, y + 0.055, w - 0.24, 0.12, "SUY NGHĨ", 6.2, FAINT,
-        bold=True, align=PP_ALIGN.CENTER, spc=0.8)
-    asset = _countdown_gif(seconds)
-    counter = slide.shapes.add_picture(asset, Inches(x + 0.15), Inches(y + 0.20),
-                                       Inches(w - 0.30), Inches(0.30))
-    return plate, counter
+    """Đồng hồ bấm để chạy + nút Dừng/Reset ở góc phải, không chạm title/kicker."""
+    x, y, w, h = SW - ML - 1.94, 0.36, 1.94, 1.13
+    plate = rounded(slide, x, y, w, h, radius=0.18, fill=WHITE, alpha=94,
+                    border=BLUE, border_w=0.9, border_alpha=48)
+    one(slide, x + 0.12, y + 0.055, w - 0.24, 0.13, "BẤM 00:30 ĐỂ BẮT ĐẦU", 6.2, FAINT,
+        bold=True, align=PP_ALIGN.CENTER, spc=0.5)
+    movie, poster = _countdown_assets(seconds)
+    # Movie chỉ chạy khi người trình bày bấm, không tự bật khi mở slide.
+    counter = slide.shapes.add_movie(movie, Inches(x + 0.16), Inches(y + 0.22),
+                                     Inches(w - 0.32), Inches(0.50), poster,
+                                     mime_type="video/mp4")
+    stop = rounded(slide, x + 0.16, y + 0.79, w - 0.32, 0.25, radius=0.12,
+                   fill=PINK, alpha=14, border=PINK, border_w=0.7, border_alpha=46)
+    tf = stop.text_frame
+    tf.vertical_anchor = MSO_ANCHOR.MIDDLE
+    tf.margin_left = tf.margin_right = tf.margin_top = tf.margin_bottom = 0
+    p = tf.paragraphs[0]; p.alignment = PP_ALIGN.CENTER
+    _run(p, "DỪNG · RESET", 7.5, PINK, True, spc=0.3)
+    # Nút trỏ về chính slide: rời/re-enter slide để dừng media và trở lại poster 00:SS.
+    stop.click_action.target_slide = slide
+    return plate, counter, stop
 
 # ---------------------------------------------------------------- nền sáng
 def bg(slide, seed=0):
@@ -925,8 +956,8 @@ def situation_slide(prs, num, tag, tile, title, story, questions, closing, skill
     header(s, num, TOTAL, kicker="TIẾT 2 · TÌNH HUỐNG %s — NHÓM EM HỎI, CẢ LỚP TRẢ LỜI" % tag,
            kcolor=accent, title=title, title_size=24, accent_tile=tile)
     # Đồng hồ tự chạy 30 giây ở góc phải; sửa THINK_SECONDS ở đầu file để đổi thời gian.
-    timer_plate, timer_counter = countdown_timer(s)
-    groups = [[timer_plate.shape_id, timer_counter.shape_id]]
+    timer_plate, timer_counter, timer_stop = countdown_timer(s)
+    groups = [[timer_plate.shape_id, timer_counter.shape_id, timer_stop.shape_id]]
 
     # Đề bài luôn tách riêng khỏi phần câu hỏi để học sinh đọc rõ cho lớp.
     c0 = glass(s, ML, 1.72, CONTENT_W, 1.46, radius=0.17)
