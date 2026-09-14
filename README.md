@@ -23,11 +23,13 @@ Bản hiện tại được ưu tiên cho **LibreOffice Impress**; mở file r�
 Mỗi slide đều có **ghi chú (notes)** – lời thoại gợi ý để học sinh nói khi đứng lớp (mở tab View → Notes). Nhớ thay tên/lớp ở chỗ `[…]` trên slide 1 và slide 18.
 
 ## Đồng hồ suy nghĩ ở phần tình huống
-Slide 11–13 có đồng hồ **`00:30` đếm ngược thật**, kích thước vừa phải ở góc phải trên.
+Slide 11–13 có đồng hồ **`00:30` đếm ngược thật**, kích thước vừa phải ở góc phải trên. Nút điều khiển chỉ dùng biểu tượng Apple, không có chữ:
 
-- Đồng hồ **không tự chạy** khi tới slide; bấm trực tiếp vào vùng `00:30` để bắt đầu.
-- Trong LibreOffice Impress, bấm lại video để Pause hoặc bấm **`DỪNG · RESET`** để quay lại trạng thái `00:30`.
-- Đồng hồ được nhúng dạng video MP4 H.264 (có poster tĩnh), thay vì GIF tự chạy hay animation PowerPoint.
+- **Play**: bấm biểu tượng tam giác để bắt đầu đếm.
+- **Stop**: khi đang đếm, bấm biểu tượng vuông để dừng và trở về `00:30`.
+- **Reset**: bấm biểu tượng mũi tên vòng để đếm lại từ đầu.
+
+Đồng hồ không tự chạy khi vào slide. Để hoạt động ổn định trong LibreOffice Impress, Play mở một slide hẹn giờ phụ đã được ẩn khỏi trình chiếu thông thường; vì vậy người xem vẫn đi qua đúng **18 slide chính**.
 
 Muốn đổi thời gian, sửa một dòng trong `build_liquid.py` rồi dựng lại file:
 ```python
@@ -36,8 +38,8 @@ THINK_SECONDS = 30   # ví dụ: 15, 45 hoặc 60
 
 ## Tự dựng lại file (tuỳ chọn)
 ```bash
-pip install python-pptx pillow imageio-ffmpeg
-python3 build_liquid.py   # tạo file .pptx và video đồng hồ
+pip install python-pptx pillow
+python3 build_liquid.py   # tạo file .pptx và ảnh/GIF đồng hồ
 ```
 - Icon PNG Apple SF Symbols đã tải nằm trong `assets/apple-sf/`; mã nguồn chỉ chèn các file này vào PowerPoint, không sinh icon.
 - Các bản trình bày cũ (nền tối, chất Xbox, emoji) đã được **xoá khỏi repo** theo yêu cầu.

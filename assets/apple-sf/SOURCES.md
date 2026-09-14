@@ -25,3 +25,4 @@ Các PNG trong thư mục này được tải trực tiếp, giữ nguyên nội
 | `scope.png`, `sparkles.png`, `star-fill.png` | `scope`, `sparkles`, `star.fill` |
 | `smiley-fill.png`, `waveform.png` | `smiley.fill`, `waveform` |
 | `bolt-fill.png`, `drop-triangle-fill.png` | `bolt.fill`, `drop.triangle.fill` |
+| `play-fill.png`, `stop-fill.png`, `arrow-counterclockwise.png` | `play.fill`, `stop.fill`, `arrow.counterclockwise` |

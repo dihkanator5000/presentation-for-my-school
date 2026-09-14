@@ -67,10 +67,12 @@ APPLE_SF = {
     "heart-handshake": "heart-circle-fill", "smile": "smiley-fill",
     "lightbulb": "lightbulb-fill", "list-checks": "checkmark-circle-fill",
     "quote": "quote-bubble-fill", "presentation": "rectangle-3-offgrid-fill",
+    "play": "play-fill", "stop": "stop-fill", "reset": "arrow-counterclockwise",
 }
 
 # Đổi con số này rồi chạy lại `python3 build_liquid.py` để có thời gian mới.
-# Đồng hồ là video: vào slide sẽ đứng yên ở 00:30; bấm để chạy, có nút Dừng/Reset.
+# Play mở một slide hẹn giờ ẩn (GIF tự chạy); Stop quay về trạng thái đứng yên;
+# Reset chạy lại GIF từ đầu. Cách này ổn định hơn video trong LibreOffice Impress.
 THINK_SECONDS = 30
 
 A_ = "http://schemas.openxmlformats.org/drawingml/2006/main"
@@ -328,26 +330,22 @@ def notes(slide, text):
 
 # ---------------------------------------------------------------- hẹn giờ suy nghĩ
 def _countdown_assets(seconds=THINK_SECONDS):
-    """Tạo video MP4 đếm ngược và khung poster tĩnh 00:SS.
+    """Tạo poster 00:SS và GIF đếm ngược cho LibreOffice Impress.
 
-    Đây là phần đồng hồ tương tác, không phải icon. Video *không autoplay*:
-    trong LibreOffice Impress, bấm trực tiếp vào 00:SS để chạy, sau đó dùng
-    điều khiển media Pause hoặc nút Dừng · Reset bên dưới để kết thúc.
+    Đây là phần đồng hồ, không phải icon. GIF chỉ xuất hiện trên slide hẹn giờ
+    ẩn, sau khi người trình bày bấm Play, nên không tự chạy khi vào slide câu hỏi.
     """
     import os
-    import subprocess
     from PIL import Image, ImageDraw, ImageFont
-    import imageio_ffmpeg
-
     root = os.path.dirname(os.path.abspath(__file__))
     folder = os.path.join(root, "assets", "timer")
     os.makedirs(folder, exist_ok=True)
     stem = os.path.join(folder, "suy-nghi-%02ds" % seconds)
-    movie, poster = stem + ".mp4", stem + ".png"
-    if os.path.exists(movie) and os.path.exists(poster):
-        return movie, poster
+    poster, gif = stem + ".png", stem + ".gif"
+    if os.path.exists(poster) and os.path.exists(gif):
+        return poster, gif
 
-    # Nét to để đồng hồ vừa phải nhưng vẫn rõ ở góc slide.
+    # Nét to, chất lượng cao để đồng hồ rõ ở góc slide.
     w, h = 560, 190
     font = ImageFont.truetype(_DEJ_B, 128)
     def frame_for(remaining):
@@ -359,48 +357,38 @@ def _countdown_assets(seconds=THINK_SECONDS):
                label, fill=(10, 102, 224), font=font)
         return frame
 
-    frame_for(seconds).save(poster)
-    # Xuất H.264 MP4 với poster đầu 00:SS. imageio-ffmpeg mang theo ffmpeg cần thiết.
-    command = [imageio_ffmpeg.get_ffmpeg_exe(), "-y", "-f", "image2pipe", "-framerate", "1",
-               "-vcodec", "png", "-i", "pipe:0", "-c:v", "libx264", "-pix_fmt", "yuv420p",
-               # Hiện 00:00 trong 1/4 giây; tổng thời gian gần đúng số giây đã chọn.
-               "-t", "%.2f" % (seconds + 0.25), "-movflags", "+faststart", movie]
-    proc = subprocess.Popen(command, stdin=subprocess.PIPE, stdout=subprocess.DEVNULL,
-                            stderr=subprocess.PIPE)
-    try:
-        for remaining in range(seconds, -1, -1):
-            frame_for(remaining).save(proc.stdin, format="PNG")
-        proc.stdin.close()
-        stderr = proc.stderr.read().decode("utf-8", "replace")
-        if proc.wait() != 0:
-            raise RuntimeError("Không tạo được video hẹn giờ: " + stderr[-500:])
-    except Exception:
-        proc.kill()
-        raise
-    return movie, poster
+    first = frame_for(seconds)
+    first.save(poster)
+    # 30 frame 1 giây: 00:30 đến 00:01, không lặp khi GIF kết thúc.
+    frames = [first] + [frame_for(remaining) for remaining in range(seconds - 1, 0, -1)]
+    frames[0].save(gif, save_all=True, append_images=frames[1:], duration=1000, disposal=2)
+    return poster, gif
 
-def countdown_timer(slide, seconds=THINK_SECONDS):
-    """Đồng hồ bấm để chạy + nút Dừng/Reset ở góc phải, không chạm title/kicker."""
+def _timer_icon_button(slide, symbol, x, y, color):
+    """Nút chỉ có Apple SF Symbol; cả nền và hình đều nhận được cú bấm."""
+    plate = oval(slide, x + 0.17, y + 0.17, 0.34, fill=WHITE, alpha=96,
+                 border=color, border_w=0.8, border_alpha=65)
+    glyph = pic(slide, symbol, x + 0.095, y + 0.095, s=0.15)
+    return [plate, glyph]
+
+def countdown_timer(slide, running=False, seconds=THINK_SECONDS):
+    """Panel 00:SS + hai nút chỉ hình.
+
+    - trạng thái thường: Play, Reset
+    - trạng thái chạy (slide ẩn): Stop, Reset
+    Các target hyperlink được nối sau khi slide ẩn đã được tạo.
+    """
     x, y, w, h = SW - ML - 1.94, 0.36, 1.94, 1.13
     plate = rounded(slide, x, y, w, h, radius=0.18, fill=WHITE, alpha=94,
                     border=BLUE, border_w=0.9, border_alpha=48)
-    one(slide, x + 0.12, y + 0.055, w - 0.24, 0.13, "BẤM 00:30 ĐỂ BẮT ĐẦU", 6.2, FAINT,
-        bold=True, align=PP_ALIGN.CENTER, spc=0.5)
-    movie, poster = _countdown_assets(seconds)
-    # Movie chỉ chạy khi người trình bày bấm, không tự bật khi mở slide.
-    counter = slide.shapes.add_movie(movie, Inches(x + 0.16), Inches(y + 0.22),
-                                     Inches(w - 0.32), Inches(0.50), poster,
-                                     mime_type="video/mp4")
-    stop = rounded(slide, x + 0.16, y + 0.79, w - 0.32, 0.25, radius=0.12,
-                   fill=PINK, alpha=14, border=PINK, border_w=0.7, border_alpha=46)
-    tf = stop.text_frame
-    tf.vertical_anchor = MSO_ANCHOR.MIDDLE
-    tf.margin_left = tf.margin_right = tf.margin_top = tf.margin_bottom = 0
-    p = tf.paragraphs[0]; p.alignment = PP_ALIGN.CENTER
-    _run(p, "DỪNG · RESET", 7.5, PINK, True, spc=0.3)
-    # Nút trỏ về chính slide: rời/re-enter slide để dừng media và trở lại poster 00:SS.
-    stop.click_action.target_slide = slide
-    return plate, counter, stop
+    poster, gif = _countdown_assets(seconds)
+    timer_path = gif if running else poster
+    counter = slide.shapes.add_picture(timer_path, Inches(x + 0.16), Inches(y + 0.12),
+                                       Inches(w - 0.32), Inches(0.56))
+    primary = _timer_icon_button(slide, "stop" if running else "play", x + 0.53, y + 0.73,
+                                 PINK if running else BLUE)
+    reset = _timer_icon_button(slide, "reset", x + 1.08, y + 0.73, INDIGO)
+    return {"all": [plate, counter] + primary + reset, "primary": primary, "reset": reset}
 
 # ---------------------------------------------------------------- nền sáng
 def bg(slide, seed=0):
@@ -948,16 +936,18 @@ def s10_divider(prs, num):
              "Mời thầy cô và các bạn cùng tham gia ạ!")
     return s, groups
 
-def situation_slide(prs, num, tag, tile, title, story, questions, closing, skill):
+def situation_slide(prs, num, tag, tile, title, story, questions, closing, skill,
+                    timer_running=False):
     """Một tình huống theo đúng cách tổ chức: nhóm em hỏi, lớp trả lời."""
     s = prs.slides.add_slide(prs.slide_layouts[6])
     bg(s, num)
     accent = PINK if tag == "2" else (MINT if tag == "1" else BLUE)
     header(s, num, TOTAL, kicker="TIẾT 2 · TÌNH HUỐNG %s — NHÓM EM HỎI, CẢ LỚP TRẢ LỜI" % tag,
            kcolor=accent, title=title, title_size=24, accent_tile=tile)
-    # Đồng hồ tự chạy 30 giây ở góc phải; sửa THINK_SECONDS ở đầu file để đổi thời gian.
-    timer_plate, timer_counter, timer_stop = countdown_timer(s)
-    groups = [[timer_plate.shape_id, timer_counter.shape_id, timer_stop.shape_id]]
+    # Đồng hồ tĩnh ở slide chính; bấm Play thì chuyển sang slide hẹn giờ ẩn để GIF chạy.
+    # Lưu controls trên đối tượng slide để main nối target Play / Stop / Reset sau đó.
+    s._timer_controls = countdown_timer(s, running=timer_running)
+    groups = [[shape.shape_id for shape in s._timer_controls["all"]]]
 
     # Đề bài luôn tách riêng khỏi phần câu hỏi để học sinh đọc rõ cho lớp.
     c0 = glass(s, ML, 1.72, CONTENT_W, 1.46, radius=0.17)
@@ -1001,7 +991,7 @@ def situation_slide(prs, num, tag, tile, title, story, questions, closing, skill
              "diễn kịch; đây là phần trao đổi giữa nhóm em với cả lớp." % tag)
     return s, groups
 
-def s11(prs, num):
+def s11(prs, num, timer_running=False):
     return situation_slide(
         prs, num, "1", "flask-conical",
         "Tình huống 1: Việc riêng trong giờ thực hành",
@@ -1011,9 +1001,9 @@ def s11(prs, num):
          "Bạn sẽ mời Thanh nhận phần việc nào để bạn quay lại làm cùng nhóm?",
          "Khi nào nhóm nên nhờ thầy cô hỗ trợ? Vì sao không nên phản ứng nóng vội?"],
         "Nhắc khéo trước, mời bạn cùng làm việc phù hợp; chỉ nhờ thầy cô khi cần.",
-        "giao tiếp khéo léo · kiên nhẫn · tôn trọng bạn")
+        "giao tiếp khéo léo · kiên nhẫn · tôn trọng bạn", timer_running=timer_running)
 
-def s12(prs, num):
+def s12(prs, num, timer_running=False):
     return situation_slide(
         prs, num, "2", "mic",
         "Tình huống 2: Một thành viên bị ốm",
@@ -1024,9 +1014,9 @@ def s12(prs, num):
          "Nhóm có thể thay đổi phần tiểu phẩm như thế nào mà vẫn tôn trọng bạn?",
          "Sau buổi biểu diễn, chúng ta nên làm gì để bạn vẫn cảm thấy mình thuộc về nhóm?"],
         "Quan tâm sức khỏe của bạn, cùng linh hoạt điều chỉnh và luôn giữ bạn trong nhóm.",
-        "quan tâm · chia sẻ · linh hoạt · trách nhiệm")
+        "quan tâm · chia sẻ · linh hoạt · trách nhiệm", timer_running=timer_running)
 
-def s13(prs, num):
+def s13(prs, num, timer_running=False):
     return situation_slide(
         prs, num, "3", "user-plus",
         "Tình huống 3: Minh mới chuyển đến lớp 7B",
@@ -1036,7 +1026,7 @@ def s13(prs, num):
          "Bạn có thể giúp Minh bắt nhịp việc học và hoạt động chung ra sao?",
          "Lớp mình cần tránh những điều gì để Minh không thấy lạc lõng hay bị trêu chọc?"],
         "Chủ động chào hỏi, giúp từ việc nhỏ và để Minh tham gia theo nhịp của bạn.",
-        "cởi mở · kiên nhẫn · đồng cảm · an toàn")
+        "cởi mở · kiên nhẫn · đồng cảm · an toàn", timer_running=timer_running)
 
 def s14_script(prs, num):
     s = prs.slides.add_slide(prs.slide_layouts[6])
@@ -1229,6 +1219,17 @@ def s18_thanks(prs, num):
              "nhỏ của cả lớp trong tuần này nhé!")
     return s, [[], [], []]
 
+# ---------------------------------------------------------------- điều khiển đồng hồ ẩn
+def _hide_slide(prs, slide):
+    """Đánh dấu slide phụ là hidden: F5 chỉ đi qua 18 slide chính, nhưng link vẫn mở được."""
+    # Theo PresentationML, thuộc tính show="0" nằm trên p:sld (không phải p:sldId).
+    slide._element.set("show", "0")
+
+def _link_controls(shapes, target_slide):
+    """Gán cùng một internal link lên nền nút và Apple symbol để bấm vùng nào cũng được."""
+    for shape in shapes:
+        shape.click_action.target_slide = target_slide
+
 # ================================================================ main
 def main():
     prs = Presentation()
@@ -1264,6 +1265,25 @@ def main():
         # các shape đó ở một số phiên bản, làm nội dung không hiện đủ khi trình chiếu.
         add_transition(sl, "med")
 
+    # Ba slide phụ có giao diện giống slide 11–13, nhưng GIF đã chạy.
+    # Chúng được ẩn để trình chiếu thông thường vẫn chỉ có 18 slide.
+    static_situations = all_slides[10:13]
+    running_situations = [
+        s11(prs, 11, timer_running=True)[0],
+        s12(prs, 12, timer_running=True)[0],
+        s13(prs, 13, timer_running=True)[0],
+    ]
+    for runner in running_situations:
+        add_transition(runner, "med")
+        _hide_slide(prs, runner)
+    for static, runner in zip(static_situations, running_situations):
+        # Slide chính: Play -> slide GIF chạy; Reset -> giữ 00:30 tĩnh.
+        _link_controls(static._timer_controls["primary"], runner)
+        _link_controls(static._timer_controls["reset"], static)
+        # Slide GIF: Stop -> trở về 00:30 tĩnh; Reset -> vào lại GIF từ đầu.
+        _link_controls(runner._timer_controls["primary"], static)
+        _link_controls(runner._timer_controls["reset"], runner)
+
     props = prs.core_properties
     props.title = "Phát triển mối quan hệ hòa đồng, hợp tác với thầy cô và bạn bè (bản sáng)"
     props.author = "Học sinh trình bày – HĐTN THCS"
@@ -1272,7 +1292,7 @@ def main():
 
     out = "Phát triển mối quan hệ hòa đồng, hợp tác - HĐTN lớp 7 (học sinh thuyết trình).pptx"
     prs.save(out)
-    print("saved:", out, "| slides:", len(prs.slides._sldIdLst))
+    print("saved:", out, "| slides chính:", len(all_slides), "| slide hẹn giờ ẩn:", len(running_situations))
     # ----- QA đo tràn chữ -----
     import os
     from PIL import ImageFont as IF
