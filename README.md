@@ -22,6 +22,14 @@ Bản hiện tại được ưu tiên cho **LibreOffice Impress**; mở file r�
 
 Mỗi slide đều có **ghi chú (notes)** – lời thoại gợi ý để học sinh nói khi đứng lớp (mở tab View → Notes). Nhớ thay tên/lớp ở chỗ `[…]` trên slide 1 và slide 18.
 
+## Đồng hồ suy nghĩ ở phần tình huống
+Slide 11–13 có đồng hồ **`00:30` đếm ngược thật** ở góc phải trên. GIF đồng hồ tự chạy một lượt khi tới slide, nên hoạt động tốt trong LibreOffice Impress mà không cần PowerPoint animation riêng.
+
+Muốn đổi thời gian, sửa một dòng trong `build_liquid.py` rồi dựng lại file:
+```python
+THINK_SECONDS = 30   # ví dụ: 15, 45 hoặc 60
+```
+
 ## Tự dựng lại file (tuỳ chọn)
 ```bash
 pip install python-pptx pillow

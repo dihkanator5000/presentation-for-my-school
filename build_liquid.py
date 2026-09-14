@@ -69,6 +69,10 @@ APPLE_SF = {
     "quote": "quote-bubble-fill", "presentation": "rectangle-3-offgrid-fill",
 }
 
+# Đổi con số này rồi chạy lại `python3 build_liquid.py` để có thời gian mới.
+# GIF tự chạy khi tới slide, tương thích Impress ổn định hơn animation PPTX.
+THINK_SECONDS = 30
+
 A_ = "http://schemas.openxmlformats.org/drawingml/2006/main"
 P_ = "http://schemas.openxmlformats.org/presentationml/2006/main"
 
@@ -321,6 +325,51 @@ def bullet_lines(slide, x, y, w, h, items, size=12.5, gap=7, dot_color=BLUE,
 
 def notes(slide, text):
     slide.notes_slide.notes_text_frame.text = text
+
+# ---------------------------------------------------------------- hẹn giờ suy nghĩ
+def _countdown_gif(seconds=THINK_SECONDS):
+    """Tạo GIF chữ số đếm ngược; đây là đồng hồ, không phải icon tự tạo.
+
+    GIF được dùng thay cho animation XML của PowerPoint để LibreOffice Impress
+    phát được đồng hồ khi trình chiếu. Giá trị `seconds` là điểm tùy chỉnh duy nhất.
+    """
+    import os
+    from PIL import Image, ImageDraw, ImageFont
+    root = os.path.dirname(os.path.abspath(__file__))
+    folder = os.path.join(root, "assets", "timer")
+    os.makedirs(folder, exist_ok=True)
+    path = os.path.join(folder, "suy-nghi-%02ds.gif" % seconds)
+    if os.path.exists(path):
+        return path
+    w, h = 240, 80
+    font = ImageFont.truetype(_DEJ_B, 48)
+    frames, durations = [], []
+    for remaining in range(seconds, -1, -1):
+        # Nền trắng khớp thẻ đồng hồ; không cần transparency nên Impress phát ổn.
+        frame = Image.new("RGB", (w, h), (255, 255, 255))
+        d = ImageDraw.Draw(frame)
+        label = "%02d:%02d" % divmod(remaining, 60)
+        bb = d.textbbox((0, 0), label, font=font)
+        d.text(((w - (bb[2] - bb[0])) / 2, (h - (bb[3] - bb[1])) / 2 - bb[1]),
+               label, fill=(10, 102, 224), font=font)
+        frames.append(frame)
+        durations.append(1000 if remaining else 2500)
+    # Không đặt loop: GIF chạy một lượt và dừng ở 00:00.
+    frames[0].save(path, save_all=True, append_images=frames[1:],
+                   duration=durations, disposal=2)
+    return path
+
+def countdown_timer(slide, seconds=THINK_SECONDS):
+    """Đồng hồ nhỏ ở góc phải, không đụng title/kicker; trả về shape để có thể quản lí."""
+    x, y, w, h = SW - ML - 1.26, 0.43, 1.26, 0.58
+    plate = rounded(slide, x, y, w, h, radius=0.18, fill=WHITE, alpha=92,
+                    border=BLUE, border_w=0.8, border_alpha=35)
+    one(slide, x + 0.12, y + 0.055, w - 0.24, 0.12, "SUY NGHĨ", 6.2, FAINT,
+        bold=True, align=PP_ALIGN.CENTER, spc=0.8)
+    asset = _countdown_gif(seconds)
+    counter = slide.shapes.add_picture(asset, Inches(x + 0.15), Inches(y + 0.20),
+                                       Inches(w - 0.30), Inches(0.30))
+    return plate, counter
 
 # ---------------------------------------------------------------- nền sáng
 def bg(slide, seed=0):
@@ -845,8 +894,8 @@ def s10_divider(prs, num):
         "Nhóm em đọc từng tình huống, mời các bạn nêu cách ứng xử rồi tổng hợp ý kiến.",
         13.5, SUB, bold=False, italic=True, line=1.3)
     sit = [("flask-conical", "TH1", "Việc riêng trong giờ thực hành", MINT),
-           ("mic", "TH2", "Bạn ốm trước buổi biểu diễn", PINK),
-           ("user-plus", "TH3", "Bạn mới chuyển đến nhút nhát", BLUE)]
+           ("mic", "TH2", "Thành viên ốm trước ngày biểu diễn", PINK),
+           ("user-plus", "TH3", "Minh mới chuyển đến lớp 7B", BLUE)]
     groups = [[], []]
     x1 = 7.75
     for i, (tile, tag, t, col) in enumerate(sit):
@@ -875,7 +924,9 @@ def situation_slide(prs, num, tag, tile, title, story, questions, closing, skill
     accent = PINK if tag == "2" else (MINT if tag == "1" else BLUE)
     header(s, num, TOTAL, kicker="TIẾT 2 · TÌNH HUỐNG %s — NHÓM EM HỎI, CẢ LỚP TRẢ LỜI" % tag,
            kcolor=accent, title=title, title_size=24, accent_tile=tile)
-    groups = []
+    # Đồng hồ tự chạy 30 giây ở góc phải; sửa THINK_SECONDS ở đầu file để đổi thời gian.
+    timer_plate, timer_counter = countdown_timer(s)
+    groups = [[timer_plate.shape_id, timer_counter.shape_id]]
 
     # Đề bài luôn tách riêng khỏi phần câu hỏi để học sinh đọc rõ cho lớp.
     c0 = glass(s, ML, 1.72, CONTENT_W, 1.46, radius=0.17)
@@ -923,9 +974,8 @@ def s11(prs, num):
     return situation_slide(
         prs, num, "1", "flask-conical",
         "Tình huống 1: Việc riêng trong giờ thực hành",
-        "Trong giờ thực hành môn Khoa học tự nhiên, các bạn cùng nhóm với Thanh "
-        "đang làm thí nghiệm thì Thanh lấy bài tập Toán ra làm, không tham gia "
-        "cùng nhóm.",
+        "Trong tiết thực hành môn Khoa học tự nhiên, các bạn cùng nhóm với Thanh "
+        "đang làm thí nghiệm thì Thanh mang bài tập Toán ra làm.",
         ["Nếu là bạn cùng nhóm với Thanh, bạn sẽ mở lời thế nào để bạn không khó chịu?",
          "Bạn sẽ mời Thanh nhận phần việc nào để bạn quay lại làm cùng nhóm?",
          "Khi nào nhóm nên nhờ thầy cô hỗ trợ? Vì sao không nên phản ứng nóng vội?"],
@@ -935,26 +985,26 @@ def s11(prs, num):
 def s12(prs, num):
     return situation_slide(
         prs, num, "2", "mic",
-        "Tình huống 2: Bạn ốm trước buổi biểu diễn",
-        "Nhóm em đang tập tiết mục văn nghệ chào mừng ngày Nhà giáo Việt Nam. "
-        "Chỉ còn hai ngày nữa là biểu diễn thì Mai — người hát chính — bị ốm, "
-        "phải nghỉ học.",
-        ["Việc đầu tiên nhóm nên làm với Mai là gì để bạn không thấy áy náy?",
-         "Nhóm có thể thay đổi phần biểu diễn như thế nào mà vẫn tôn trọng Mai?",
-         "Sau buổi biểu diễn, chúng ta nên làm gì để Mai vẫn cảm thấy mình thuộc về nhóm?"],
-        "Quan tâm sức khỏe của bạn, cùng linh hoạt điều chỉnh và luôn giữ Mai trong nhóm.",
+        "Tình huống 2: Một thành viên bị ốm",
+        "Nhóm của Hà được lớp giao nhiệm vụ chuẩn bị một tiểu phẩm để biểu diễn "
+        "trong tiết Sinh hoạt dưới cờ. Tuy nhiên, ngay trước ngày biểu diễn thì "
+        "một thành viên bị ốm.",
+        ["Việc đầu tiên nhóm nên làm với bạn bị ốm là gì để bạn không thấy áy náy?",
+         "Nhóm có thể thay đổi phần tiểu phẩm như thế nào mà vẫn tôn trọng bạn?",
+         "Sau buổi biểu diễn, chúng ta nên làm gì để bạn vẫn cảm thấy mình thuộc về nhóm?"],
+        "Quan tâm sức khỏe của bạn, cùng linh hoạt điều chỉnh và luôn giữ bạn trong nhóm.",
         "quan tâm · chia sẻ · linh hoạt · trách nhiệm")
 
 def s13(prs, num):
     return situation_slide(
         prs, num, "3", "user-plus",
-        "Tình huống 3: Bạn mới chuyển đến lớp",
-        "Có bạn mới chuyển đến lớp em. Bạn còn nhút nhát, ít nói, ngại tham gia "
-        "các hoạt động chung cùng các bạn.",
-        ["Nếu là người ngồi gần, bạn sẽ nói câu đầu tiên nào để làm quen với bạn mới?",
-         "Bạn có thể giúp bạn mới bắt nhịp việc học và hoạt động chung ra sao?",
-         "Lớp mình cần tránh những điều gì để bạn không thấy lạc lõng hay bị trêu chọc?"],
-        "Chủ động chào hỏi, giúp từ việc nhỏ và để bạn tham gia theo nhịp của mình.",
+        "Tình huống 3: Minh mới chuyển đến lớp 7B",
+        "Minh là một học sinh mới chuyển đến lớp 7B. Tuy nhiên, Minh là người "
+        "nhút nhát nên giờ ra chơi thường ngồi một mình trong lớp không chơi cùng các bạn.",
+        ["Nếu ngồi gần Minh, bạn sẽ nói câu đầu tiên nào để làm quen với bạn?",
+         "Bạn có thể giúp Minh bắt nhịp việc học và hoạt động chung ra sao?",
+         "Lớp mình cần tránh những điều gì để Minh không thấy lạc lõng hay bị trêu chọc?"],
+        "Chủ động chào hỏi, giúp từ việc nhỏ và để Minh tham gia theo nhịp của bạn.",
         "cởi mở · kiên nhẫn · đồng cảm · an toàn")
 
 def s14_script(prs, num):
