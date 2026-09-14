@@ -5,8 +5,8 @@ Chủ đề: Phát triển mối quan hệ hòa đồng, hợp tác với thầy
 Người trình bày: học sinh ("em / chúng em")
 - Giao diện SÁNG, hiệu ứng kính lỏng (glass cards trong suốt + bóng mềm + ánh sáng)
 - Icon Apple SF Symbols PNG tải trực tiếp từ web (không tự vẽ/render icon, không emoji)
-- Font có italic (Segoe UI Italic) cho các câu nhấn
-- Animation: chuyển slide Fade + nội dung hiện dần khi bấm phím
+- Font có italic (Liberation Sans) để LibreOffice không tự thay font, làm dính chữ
+- Animation: chuyển slide Fade tương thích LibreOffice Impress
 
 Chạy:  python3 build_liquid.py
 """
@@ -50,7 +50,9 @@ MINT   = "149A4E"
 VIOLET = "7C3AED"
 
 # Apple SF Symbols tải trực tiếp (PNG nguyên gốc) đặt trong assets/apple-sf
-FONT = "Segoe UI"
+# Liberation Sans đi kèm LibreOffice trên hầu hết máy; có đủ Regular/Bold/Italic,
+# hỗ trợ tiếng Việt và tránh LibreOffice tự thay Segoe UI làm đổi dòng chữ.
+FONT = "Liberation Sans"
 
 # Tên nội bộ của bài trình bày -> file PNG Apple SF Symbols đã tải về.
 # Không có bước tự vẽ hay tạo lại icon trong mã nguồn.
@@ -264,7 +266,7 @@ _DEJ = "/usr/local/lib/python3.11/dist-packages/matplotlib/mpl-data/fonts/ttf/De
 _DEJ_B = "/usr/local/lib/python3.11/dist-packages/matplotlib/mpl-data/fonts/ttf/DejaVuSans-Bold.ttf"
 
 def tw(text, size, bold=False):
-    """Bề rộng text (inch) đo bằng DejaVu - an toàn hơn Segoe."""
+    """Bề rộng text (inch) đo bằng DejaVu, gần Liberation Sans và có đệm an toàn."""
     f = ImageFont.truetype(_DEJ_B if bold else _DEJ, int(size * 4))
     return f.getlength(text) / 4.0 * 0.98 / 72.0
 
@@ -287,9 +289,16 @@ def chip(slide, x, y, text, color, size=10.5, h=0.32, **kw):
 
 def glass(slide, x, y, w, h, radius=0.16, alpha=46, shadow=True, gloss=True,
           border_alpha=78):
-    return rounded(slide, x, y, w, h, radius=radius, fill=WHITE, alpha=alpha,
-                   border=WHITE, border_w=1.1, border_alpha=border_alpha,
-                   shadow=(9, 3.5, 14) if shadow else None, gloss=gloss)
+    """Card sáng, ưu tiên LibreOffice Impress.
+
+    Impress xử lí card quá trong/đổ bóng XML tùy máy có thể khác PowerPoint,
+    vì vậy dùng nền trắng rõ hơn và bỏ bóng/gloss phụ. Vẫn giữ được bề mặt kính nhẹ
+    nhờ viền trắng và nền màu phía sau, nhưng chữ luôn dễ đọc.
+    """
+    safe_alpha = max(alpha, 82)
+    return rounded(slide, x, y, w, h, radius=radius, fill=WHITE, alpha=safe_alpha,
+                   border=WHITE, border_w=1.0, border_alpha=88,
+                   shadow=None, gloss=False)
 
 def num_badge(slide, cx, cy, d, n, color=BLUE):
     c = oval(slide, cx, cy, d, fill=WHITE, alpha=88, border=WHITE,
@@ -533,9 +542,9 @@ def s2_roadmap(prs, num):
     chip(s, x2 + 0.35, y0 + 1.3, "CẢ LỚP CÙNG THAM GIA", PINK, size=9.5,
          h=0.3, spc=1.4)
     b2 = bullet_lines(s, x2 + 0.4, y0 + 1.9, CW2 - 0.8, hh - 2.05, [
-        "3 tình huống SGK — các nhóm cùng phân vai xử lí.",
-        "Diễn hoặc thuyết trình cách giải quyết.",
-        "Cả lớp nhận xét và góp thêm ý hay.",
+        "3 tình huống SGK — nhóm em lần lượt đặt câu hỏi.",
+        "Cả lớp suy nghĩ, giơ tay và nêu cách ứng xử.",
+        "Nhóm em ghi ý, cảm ơn rồi chốt kĩ năng.",
         "Chọn một hành động hợp tác cho tuần tới.",
     ], size=12, gap=7)
     groups[1] += [c2.shape_id, i2.shape_id, b2.shape_id]
@@ -830,10 +839,10 @@ def s10_divider(prs, num):
     bg(s, 10)
     chip(s, ML, 0.85, "BƯỚC SANG TIẾT 2 · CÙNG THỰC HÀNH", PINK, size=11,
          h=0.4, padx=0.24, spc=2.0)
-    one(s, ML, 1.45, 6.9, 1.6, "Chúng em mời cả lớp\ncùng xử lí 3 tình huống",
+    one(s, ML, 1.45, 6.9, 1.6, "Nhóm em hỏi —\ncả lớp cùng trả lời",
         35, INK, bold=True)
-    one(s, ML, 3.55, 6.4, 0.75,
-        "Các nhóm sẽ phân vai, diễn hoặc thuyết trình. Cả lớp theo dõi và góp ý.",
+    one(s, ML, 3.55, 6.45, 0.85,
+        "Nhóm em đọc từng tình huống, mời các bạn nêu cách ứng xử rồi tổng hợp ý kiến.",
         13.5, SUB, bold=False, italic=True, line=1.3)
     sit = [("flask-conical", "TH1", "Việc riêng trong giờ thực hành", MINT),
            ("mic", "TH2", "Bạn ốm trước buổi biểu diễn", PINK),
@@ -848,55 +857,66 @@ def s10_divider(prs, num):
         one(s, x1 + 0.78, y + 0.4, 4.0, 0.34, t, 13, INK, bold=True)
         groups[0].append(c.shape_id)
     c2 = glass(s, ML, 5.1, 6.5, 1.3, radius=0.2)
-    tx(s, ML + 0.35, 5.35, 5.9, 0.9, [
+    tx(s, ML + 0.35, 5.30, 5.9, 1.0, [
         {"runs": [("Cách chúng em tổ chức:  ", 13.5, INK, True),
-                  ("chia nhóm → bốc thăm tình huống → chuẩn bị 5 phút → diễn hoặc "
-                   "trình bày.", 12.5, SUB, False)], "line": 1.3}])
+                  ("nhóm em nêu câu hỏi → cả lớp suy nghĩ 30 giây → các bạn trả lời "
+                   "→ nhóm em ghi ý và chốt kĩ năng.", 12.5, SUB, False)], "line": 1.28}])
     groups[1] += [c2.shape_id]
-    notes(s, "Bây giờ tới phần vui nhất! Chúng em chia lớp thành các nhóm; mỗi nhóm "
-             "bốc thăm 1 trong 3 tình huống, chuẩn bị 5 phút rồi lên phân vai diễn "
-             "hoặc thuyết trình. Cả lớp theo dõi và nhận xét. Mời thầy cô cùng cổ vũ!")
+    notes(s, "Bây giờ tới phần trao đổi cùng cả lớp! Với mỗi tình huống, nhóm em sẽ "
+             "đọc đề và đặt ba câu hỏi ngắn. Các bạn suy nghĩ khoảng 30 giây, sau đó "
+             "giơ tay trả lời. Nhóm em lắng nghe, ghi ý chính rồi chốt lại kĩ năng. "
+             "Mời thầy cô và các bạn cùng tham gia ạ!")
     return s, groups
 
-def situation_slide(prs, num, tag, tile, title, story, steps, disc, skill):
+def situation_slide(prs, num, tag, tile, title, story, questions, closing, skill):
+    """Một tình huống theo đúng cách tổ chức: nhóm em hỏi, lớp trả lời."""
     s = prs.slides.add_slide(prs.slide_layouts[6])
     bg(s, num)
-    header(s, num, TOTAL, kicker="TIẾT 2 · TÌNH HUỐNG %s — MỜI CẢ LỚP CÙNG XỬ LÍ" % tag,
-           kcolor=PINK if tag == "2" else (MINT if tag == "1" else BLUE),
-           title=title, title_size=24, accent_tile=tile)
+    accent = PINK if tag == "2" else (MINT if tag == "1" else BLUE)
+    header(s, num, TOTAL, kicker="TIẾT 2 · TÌNH HUỐNG %s — NHÓM EM HỎI, CẢ LỚP TRẢ LỜI" % tag,
+           kcolor=accent, title=title, title_size=24, accent_tile=tile)
     groups = []
-    c0 = glass(s, ML, 1.75, CONTENT_W, 1.55, radius=0.17)
-    ic = pic(s, tile, ML + 0.28, 1.75 + 0.44, s=0.66)
-    tx(s, ML + 1.2, 1.75 + 0.24, CONTENT_W - 1.6, 1.05, [
-        {"runs": [("Tình huống:  ", 13.5, BLUE, True),
-                  (story, 13.5, INK, False)], "line": 1.34}])
+
+    # Đề bài luôn tách riêng khỏi phần câu hỏi để học sinh đọc rõ cho lớp.
+    c0 = glass(s, ML, 1.72, CONTENT_W, 1.46, radius=0.17)
+    ic = pic(s, tile, ML + 0.30, 2.10, s=0.54)
+    tx(s, ML + 1.18, 1.96, CONTENT_W - 1.55, 0.94, [
+        {"runs": [("Tình huống:  ", 13.2, accent, True),
+                  (story, 13.2, INK, False)], "line": 1.28}])
     groups.append([c0.shape_id])
-    y0 = 3.55
-    c1 = glass(s, ML, y0, 7.95, 2.95)
-    one(s, ML + 0.3, y0 + 0.2, 7.4, 0.4,
-        "Cách nhóm em định xử lí — các bạn bổ sung nhé!", 14.5, INK, bold=True)
-    y = y0 + 0.78
-    for i, st in enumerate(steps):
-        num_badge(s, ML + 0.45, y + 0.06, 0.36, i + 1, BLUE)
-        tx(s, ML + 1.0, y - 0.02, 6.8, 0.78, [
-            {"runs": [(st, 12, SUB, False)], "line": 1.22}])
-        y += 0.7
+
+    # Trái: chỉ chứa câu hỏi mở. Không đưa sẵn đáp án để cả lớp thật sự trả lời.
+    y0 = 3.40
+    c1 = glass(s, ML, y0, 7.95, 3.05)
+    one(s, ML + 0.30, y0 + 0.20, 7.35, 0.38,
+        "Nhóm em gửi 3 câu hỏi cho cả lớp", 14.5, INK, bold=True)
+    y = y0 + 0.76
+    for i, question in enumerate(questions):
+        num_badge(s, ML + 0.45, y + 0.06, 0.36, i + 1, accent)
+        tx(s, ML + 1.04, y - 0.02, 6.45, 0.68, [
+            {"runs": [(question, 12.2, SUB, False)], "line": 1.18}])
+        y += 0.75
     groups.append([c1.shape_id])
+
+    # Phải: nhắc rõ nhịp hỏi–đáp và phần chốt ý của nhóm.
     x2 = ML + 8.2
-    c2 = glass(s, x2, y0, 3.81, 1.42, radius=0.18)
-    ic2 = pic(s, "messages-square", x2 + 0.22, y0 + 0.2, s=0.42)
-    tx(s, x2 + 0.78, y0 + 0.2, 2.9, 1.1, [
-        {"runs": [("Bàn cùng cả lớp", 12.5, INK, True)], "after": 4},
-        {"runs": [(disc, 10.5, SUB, False)], "line": 1.2}])
-    c3 = glass(s, x2, y0 + 1.58, 3.81, 1.37, radius=0.18)
-    ic3 = pic(s, "zap", x2 + 0.22, y0 + 1.78, s=0.42)
-    tx(s, x2 + 0.78, y0 + 1.76, 2.9, 1.05, [
-        {"runs": [("Chúng em vận dụng", 12.5, INK, True)], "after": 4},
-        {"runs": [(skill, 10.5, SUB, False)], "line": 1.2}])
+    c2 = glass(s, x2, y0, 3.81, 1.47, radius=0.18)
+    ic2 = pic(s, "messages-square", x2 + 0.24, y0 + 0.22, s=0.38)
+    tx(s, x2 + 0.78, y0 + 0.20, 2.78, 1.10, [
+        {"runs": [("Cả lớp trả lời", 12.5, INK, True)], "after": 4},
+        {"runs": [("Các bạn suy nghĩ 30 giây, rồi giơ tay nêu ý kiến.", 10.5, SUB,
+                   False)], "line": 1.18}])
+    c3 = glass(s, x2, y0 + 1.62, 3.81, 1.43, radius=0.18)
+    ic3 = pic(s, "zap", x2 + 0.24, y0 + 1.85, s=0.38)
+    tx(s, x2 + 0.78, y0 + 1.80, 2.78, 1.10, [
+        {"runs": [("Nhóm em chốt ý", 12.5, INK, True)], "after": 3},
+        {"runs": [(closing, 10.5, SUB, False)], "after": 2, "line": 1.15},
+        {"runs": [("Kĩ năng: " + skill, 10.2, accent, True)], "line": 1.10}])
     groups.append([c2.shape_id, c3.shape_id])
-    notes(s, "Mời các bạn xem nhóm được phân công diễn hoặc trình bày tình huống %s. "
-             "Sau đó cả lớp cho ý kiến: cách xử lí nào khéo léo, tôn trọng và giúp "
-             "bạn tốt nhất? Chúng em ghi nhận mọi ý kiến ạ." % tag)
+    notes(s, "Nhóm em đọc tình huống %s, sau đó lần lượt hỏi ba câu hỏi trên màn "
+             "hình. Mời cả lớp suy nghĩ 30 giây rồi giơ tay trả lời. Nhóm em ghi "
+             "nhận câu trả lời, cảm ơn các bạn và chốt ý ở ô bên phải. Không cần "
+             "diễn kịch; đây là phần trao đổi giữa nhóm em với cả lớp." % tag)
     return s, groups
 
 def s11(prs, num):
@@ -906,13 +926,10 @@ def s11(prs, num):
         "Trong giờ thực hành môn Khoa học tự nhiên, các bạn cùng nhóm với Thanh "
         "đang làm thí nghiệm thì Thanh lấy bài tập Toán ra làm, không tham gia "
         "cùng nhóm.",
-        ["Nhắc nhở nhẹ nhàng, thân thiện: “Thanh ơi, giờ đang thực hành, cậu để "
-         "bài Toán sang giờ ra chơi làm nhé!”",
-         "Mời Thanh tham gia bằng một việc phù hợp: ghi số liệu, quan sát hiện "
-         "tượng, thao tác thí nghiệm…",
-         "Nếu Thanh vẫn chưa hợp tác: bình tĩnh nhờ thầy cô góp ý để cả nhóm "
-         "hoàn thành nhiệm vụ chung."],
-        "Vì sao nên nhắc khéo trước, và nhờ thầy cô chỉ là giải pháp cuối?",
+        ["Nếu là bạn cùng nhóm với Thanh, bạn sẽ mở lời thế nào để bạn không khó chịu?",
+         "Bạn sẽ mời Thanh nhận phần việc nào để bạn quay lại làm cùng nhóm?",
+         "Khi nào nhóm nên nhờ thầy cô hỗ trợ? Vì sao không nên phản ứng nóng vội?"],
+        "Nhắc khéo trước, mời bạn cùng làm việc phù hợp; chỉ nhờ thầy cô khi cần.",
         "giao tiếp khéo léo · kiên nhẫn · tôn trọng bạn")
 
 def s12(prs, num):
@@ -922,15 +939,11 @@ def s12(prs, num):
         "Nhóm em đang tập tiết mục văn nghệ chào mừng ngày Nhà giáo Việt Nam. "
         "Chỉ còn hai ngày nữa là biểu diễn thì Mai — người hát chính — bị ốm, "
         "phải nghỉ học.",
-        ["Thăm hỏi, động viên Mai mau khỏi ốm; trấn an để bạn không phải lo "
-         "lắng hay thấy có lỗi với nhóm.",
-         "Họp khẩn cả nhóm: rà soát phần Mai đảm nhận, điều chỉnh tiết mục cho "
-         "phù hợp (đổi người hát hoặc đổi tiết mục).",
-         "Tập luyện lại với đội hình mới, nhờ thầy cô góp ý nếu cần; sau buổi "
-         "diễn cử bạn thăm và báo kết quả cho Mai."],
-        "Tinh thần quan trọng nhất của cả nhóm lúc này là gì? Làm sao để Mai "
-        "không thấy áy náy?",
-        "quan tâm, chia sẻ · linh hoạt · trách nhiệm với nhau")
+        ["Việc đầu tiên nhóm nên làm với Mai là gì để bạn không thấy áy náy?",
+         "Nhóm có thể thay đổi phần biểu diễn như thế nào mà vẫn tôn trọng Mai?",
+         "Sau buổi biểu diễn, chúng ta nên làm gì để Mai vẫn cảm thấy mình thuộc về nhóm?"],
+        "Quan tâm sức khỏe của bạn, cùng linh hoạt điều chỉnh và luôn giữ Mai trong nhóm.",
+        "quan tâm · chia sẻ · linh hoạt · trách nhiệm")
 
 def s13(prs, num):
     return situation_slide(
@@ -938,22 +951,19 @@ def s13(prs, num):
         "Tình huống 3: Bạn mới chuyển đến lớp",
         "Có bạn mới chuyển đến lớp em. Bạn còn nhút nhát, ít nói, ngại tham gia "
         "các hoạt động chung cùng các bạn.",
-        ["Chủ động làm quen: chào hỏi, giới thiệu bản thân, rủ bạn chơi trong "
-         "giờ giải lao.",
-         "Giúp bạn bắt nhịp việc học: hỏi thăm, cho mượn vở, rủ bạn học nhóm; "
-         "không trêu chọc, không để bạn đơn độc.",
-         "Rủ bạn tham gia từ những việc nhỏ: trực nhật, thể thao, tập tiết mục… "
-         "để bạn tự tin dần."],
-        "Nếu mình là bạn mới đó, mình muốn được đón nhận như thế nào?",
-        "cởi mở, kiên nhẫn · đồng cảm · tạo cảm giác an toàn")
+        ["Nếu là người ngồi gần, bạn sẽ nói câu đầu tiên nào để làm quen với bạn mới?",
+         "Bạn có thể giúp bạn mới bắt nhịp việc học và hoạt động chung ra sao?",
+         "Lớp mình cần tránh những điều gì để bạn không thấy lạc lõng hay bị trêu chọc?"],
+        "Chủ động chào hỏi, giúp từ việc nhỏ và để bạn tham gia theo nhịp của mình.",
+        "cởi mở · kiên nhẫn · đồng cảm · an toàn")
 
 def s14_script(prs, num):
     s = prs.slides.add_slide(prs.slide_layouts[6])
     bg(s, 14)
-    header(s, num, TOTAL, kicker="TIẾT 2 · KỊCH BẢN CỦA NHÓM EM", kcolor=INDIGO,
-           title="Kịch bản mẫu — “Giờ thực hành nhóm 3”", title_size=25,
+    header(s, num, TOTAL, kicker="TIẾT 2 · KỊCH BẢN TRAO ĐỔI CỦA NHÓM EM", kcolor=INDIGO,
+           title="Kịch bản mẫu — nhóm em hỏi, lớp mình trả lời", title_size=25,
            accent_tile="presentation")
-    roles = ["Dẫn chuyện", "Lan — nhóm trưởng", "Thanh", "Minh"]
+    roles = ["Dẫn chuyện", "Bạn hỏi", "Cả lớp", "Bạn tổng hợp"]
     xr = ML
     for rl in roles:
         p = pill(s, xr, 1.72, rl, size=10, h=0.34, padx=0.14,
@@ -961,12 +971,12 @@ def s14_script(prs, num):
         xr = (p.left + p.width) / EMU_IN + 0.16
     c = glass(s, ML, 2.25, CONTENT_W, 4.15, radius=0.14, alpha=44)
     script = [
-        ("Dẫn chuyện", INDIGO, "Đã đến giờ thực hành Khoa học tự nhiên. Nhóm Thanh quây quần bên bàn thí nghiệm."),
-        ("Lan (nhóm trưởng)", MINT, "Thanh ơi, đang giờ thực hành, cậu cất vở Toán đã nhé!"),
-        ("Thanh", INK, "Nhưng bài Toán khó quá, mai phải nộp rồi…"),
-        ("Minh", PURPLE, "Hay Thanh ghi số liệu thí nghiệm cho bọn tớ — vừa giúp nhóm, xong sớm lại về làm Toán!"),
-        ("Thanh", INK, "Ừ nhỉ, để tớ thử! … Nhóm mình phối hợp ăn ý thật đấy!"),
-        ("Lan (nhóm trưởng)", MINT, "Cảm ơn các cậu! Có hợp tác, việc gì cũng xong."),
+        ("Dẫn chuyện", INDIGO, "Nhóm em xin mời cả lớp cùng xử lí tình huống 1: Thanh đang làm việc riêng trong giờ thực hành."),
+        ("Bạn hỏi", MINT, "Nếu là bạn cùng nhóm, bạn sẽ mở lời thế nào để Thanh không khó chịu?"),
+        ("Cả lớp", INK, "Em sẽ nhắc nhẹ: “Thanh ơi, nhóm mình đang cần cậu cùng làm thí nghiệm.”"),
+        ("Bạn hỏi", PURPLE, "Nếu Thanh lo bài Toán, nhóm mình có thể mời bạn làm phần việc nào?"),
+        ("Cả lớp", INK, "Bạn có thể ghi số liệu hoặc quan sát hiện tượng, vừa giúp nhóm vừa theo kịp công việc."),
+        ("Bạn tổng hợp", MINT, "Nhóm em cảm ơn! Chúng ta nhắc khéo, mời bạn vào việc phù hợp và hỗ trợ nhau."),
     ]
     y = 2.62
     for who, col, line in script:
@@ -978,11 +988,11 @@ def s14_script(prs, num):
         y += 0.62
     groups = [[c.shape_id]]
     ph = pill(s, ML + 0.32, 6.62,
-              "Mỗi nhóm tự viết lời thoại theo cách nói của mình — diễn tự nhiên là hay nhất!",
-              size=11.5, h=0.4, padx=0.2, color=INDIGO, fill_alpha=16, spc=0.1)
-    notes(s, "Đây là kịch bản mẫu nhóm em chuẩn bị cho tình huống 1. Các nhóm có thể "
-             "viết lời thoại theo ngôn ngữ của mình cho tự nhiên. Khi diễn: nói to, "
-             "rõ, thể hiện cảm xúc; người dẫn chuyện đứng giữa giới thiệu.")
+              "Hỏi ngắn, chờ lớp trả lời, cảm ơn rồi mới chốt ý — thế là đủ tự nhiên!",
+              size=11.5, h=0.4, padx=0.2, color=INDIGO, fill_alpha=18, spc=0.1)
+    notes(s, "Đây là kịch bản mẫu nhóm em dùng để hỏi cả lớp, không phải kịch diễn. "
+             "Bạn dẫn chuyện đọc đề; bạn hỏi lần lượt đặt câu; chờ khoảng 30 giây để "
+             "các bạn giơ tay. Bạn tổng hợp ghi ý chính, cảm ơn cả lớp rồi chốt kĩ năng.")
     return s, groups
 
 def s15_lessons(prs, num):
@@ -1168,12 +1178,10 @@ def main():
     for b in builders:
         sl, _anim = b()
         all_slides.append(sl)
+        # Fade chuyển slide là hiệu ứng được LibreOffice Impress đọc ổn định.
+        # Không chèn entrance-animation riêng từng shape: Impress có thể ẩn/lệch
+        # các shape đó ở một số phiên bản, làm nội dung không hiện đủ khi trình chiếu.
         add_transition(sl, "med")
-        # group: mọi shape không nằm trong nền/header (tên ~bg/~hdr)
-        body = [sp.shape_id for sp in sl.shapes
-                if not sp.name.startswith("~")]
-        if body:
-            add_timing(sl, [body])
 
     props = prs.core_properties
     props.title = "Phát triển mối quan hệ hòa đồng, hợp tác với thầy cô và bạn bè (bản sáng)"
